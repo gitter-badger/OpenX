@@ -1,16 +1,15 @@
--- OpenGraphics alpha 0.1.1 by CrazedProgrammer
+-- OpenGraphics alpha 0.2.0 by CrazedProgrammer
 -- Licensed under MIT: http://opensource.org/licenses/mit-license.php
 -- Available on GitHub: https://github.com/CrazedProgrammer/OpenGraphics
 -- You can load this API with dofile or you can put it directly into your program.
 
 -- Don't delete this.
-local graphics, canvas, _table_concat, _math_floor, _math_abs, _math_min, _math_max, _math_sin, _math_cos, _colors = { }, { }, table.concat, math.floor, math.abs, math.min, math.max, math.sin, math.cos, {[1]="0",[2]="1",[4]="2",[8]="3",[16]="4",[32]="5",[64]="6",[128]="7",[256]="8",[512]="9",[1024]="a",[2048]="b",[4096]="c",[8192]="d",[16384]="e",[32768]="f"}
-graphics.canvas = canvas
+local graphics, canvas, context3d, _string_format, _string_char, _table_concat, _math_floor, _math_abs, _math_min, _math_max, _math_sin, _math_cos, _colors = { }, { }, { }, string.format, string.char, table.concat, math.floor, math.abs, math.min, math.max, math.sin, math.cos, {[1]="0",[2]="1",[4]="2",[8]="3",[16]="4",[32]="5",[64]="6",[128]="7",[256]="8",[512]="9",[1024]="a",[2048]="b",[4096]="c",[8192]="d",[16384]="e",[32768]="f"}
+graphics.canvas, graphics.context3d = canvas, context3d
 
 -- Main functions (gets returned to the user), you can delete these.
 function graphics.createCanvas(width, height, backcolor, char, textcolor)
-	local canvas = setmetatable({ }, {__index = graphics.canvas})
-	canvas.width, canvas.height, canvas.x1, canvas.y1, canvas.x2, canvas.y2, canvas.overwrite, canvas.buffer = width, height, 1, 1, width, height, false, { }
+	local canvas = setmetatable({width = width, height = height, x1 = 1, y1 = 1, x2 = width, y2 = height, overwrite = false, buffer = { }}, {__index = graphics.canvas})
 	if backcolor then
 		for i=1,width*height*3,3 do
 			canvas.buffer[i] = backcolor
@@ -30,9 +29,7 @@ function graphics.createCanvas(width, height, backcolor, char, textcolor)
 end
 
 function graphics.loadCanvas(filestr, isstr)
-	local canvas = setmetatable({ }, {__index = graphics.canvas})
-	canvas.overwrite = false
-	canvas.buffer = { }
+	local canvas = setmetatable({overwrite = false, buffer = { }}, {__index = graphics.canvas})
 	local str = filestr
 	if not isstr then
 		local f = fs.open(filestr, "r")
@@ -40,6 +37,42 @@ function graphics.loadCanvas(filestr, isstr)
 		f.close()
 	end
 	if str:byte(1) == 30 then
+		local lines, width, w, c, i, backcolor, textcolor = { }, 0
+		for line in (str .. "\n"):gmatch("([^\n]*)\n") do
+			lines[#lines + 1] = line
+		end
+		for j=1,#lines do
+			w = #lines[j]
+			for i=1,#lines[j] do
+				if lines[j]:byte(i) == 30 or lines[j]:byte(i) == 31 then
+					w = w - 2
+				end
+			end
+			if width < w then
+				width = w
+			end
+		end
+		canvas.width = width
+		canvas.height = #lines
+		for j=1,canvas.height do
+			w, i, backcolor, textcolor = 1, 1
+			while i <= #lines[j] do
+				c = lines[j]:sub(i, i)
+				if c == "\30" then
+					i = i + 1
+					backcolor = 2 ^ tonumber(lines[j]:sub(i, i), 16)
+				elseif c == "\31" then
+					i = i + 1
+					textcolor = 2 ^ tonumber(lines[j]:sub(i, i), 16)
+				else
+					canvas.buffer[((j - 1) * canvas.width + w) * 3 - 2] = backcolor
+					canvas.buffer[((j - 1) * canvas.width + w) * 3 - 1] = c
+					canvas.buffer[((j - 1) * canvas.width + w) * 3] = textcolor
+					w = w + 1
+				end
+				i = i + 1
+			end
+		end
 	elseif str:byte(1) == 95 then
 		canvas.width = tonumber(str:sub(2, 5), 16)
 		canvas.height = tonumber(str:sub(6, 9), 16)
@@ -47,7 +80,7 @@ function graphics.loadCanvas(filestr, isstr)
 		for j=1,canvas.height do
 			for i=1,canvas.width do
 				if str:byte(n) ~= 95 then
-					canvas.buffer[((j - 1) * canvas.width + i) * 3 - 1] = string.char(tonumber(str:sub(n, n + 1), 16))
+					canvas.buffer[((j - 1) * canvas.width + i) * 3 - 1] = _string_char(tonumber(str:sub(n, n + 1), 16))
 				end
 				if str:byte(n + 2) ~= 95 then
 					canvas.buffer[((j - 1) * canvas.width + i) * 3 - 2] = 2 ^ tonumber(str:sub(n + 2, n + 2), 16)
@@ -59,12 +92,33 @@ function graphics.loadCanvas(filestr, isstr)
 			end
 		end
 	else
+		local lines, width, color = { }, 0
+		for line in (str .. "\n"):gmatch("([^\n]*)\n") do
+			lines[#lines + 1] = line
+		end
+		for i=1,#lines do
+			width = width > #lines[i] and width or #lines[i]
+		end
+		canvas.width = width
+		canvas.height = #lines
+		for j=1,canvas.height do
+			for i=1,canvas.width do
+				color = tonumber(lines[j]:sub(i, i), 16)
+				if color then
+					canvas.buffer[((j - 1) * canvas.width + i) * 3 - 2] = 2 ^ color
+				end
+			end
+		end
 	end
 	canvas.x1 = 1
 	canvas.y1 = 1
 	canvas.x2 = canvas.width
 	canvas.y2 = canvas.height
 	return canvas
+end
+
+function graphics.createContext3D()
+	return setmetatable({tris = { }, stack = { }}, {__index = graphics.context3d})
 end
 
 -- Canvas functions, you can delete these.
@@ -76,7 +130,7 @@ function canvas:render(display, x, y, x1, y1, x2, y2)
 	if y1 > y2 then
 		y1, y2 = y2, y1
 	end
-	if x2 < 1 or x1 > self.width or y2 < 1 or y1 > self.height then return end
+	if x2 < 1 or x1 > self.width or y2 < 1 or y1 > self.height then return self end
 	if x1 < 1 then x = x - x1 + 1 x1 = 1 end
 	if x2 > self.width then x2 = self.width end
 	if y1 < 1 then y = y - y1 + 1 y1 = 1 end
@@ -147,14 +201,91 @@ function canvas:render(display, x, y, x1, y1, x2, y2)
 	end
 end
 
+function canvas:copy()
+	local canvas = setmetatable({width = self.width, height = self.height, x1 = self.x1, y1 = self.y1, x2 = self.x2, y2 = self.y2, overwrite = self.overwrite, buffer = { }}, {__index = graphics.canvas})
+	for i=1,self.width*self.height*3,1 do
+		canvas.buffer[i] = self.buffer[i]
+	end
+	return canvas
+end
+
+function canvas:save(filestr, format)
+	format = format or "srf"
+	local data, str, handle, backcolor, char, textcolor = { }
+	if type(filestr) == "string" then
+		handle = fs.open(filestr, "w")
+	end
+	if format == "srf" then
+		data[1] = "_"
+		data[2] = _string_format("%04x", self.width)
+		data[3] = _string_format("%04x", self.height)
+		for j=1,self.height do
+			for i=1,self.width do
+				backcolor, char, textcolor = self.buffer[((j - 1) * self.width + i) * 3 - 2], self.buffer[((j - 1) * self.width + i) * 3 - 1], self.buffer[((j - 1) * self.width + i) * 3]
+				if char then
+					data[((j - 1) * self.width + i) * 3 + 1] = _string_format("%02x", char:byte(1))
+				else
+					data[((j - 1) * self.width + i) * 3 + 1] = "__"
+				end
+				data[((j - 1) * self.width + i) * 3 + 2] = backcolor and _colors[backcolor] or "_"
+				data[((j - 1) * self.width + i) * 3 + 3] = textcolor and _colors[textcolor] or "_"
+			end
+		end
+	elseif format == "nft" then
+		local bc, tc
+		for j=1,self.height do
+			backcolor, textcolor = nil
+			for i=1,self.width do
+				bc, tc = self.buffer[((j - 1) * self.width + i) * 3 - 2] or 32768, self.buffer[((j - 1) * self.width + i) * 3] or 1
+				if backcolor ~= bc then
+					data[#data + 1] = string.char(30) .. _colors[bc]
+					backcolor = bc
+				end
+				if textcolor ~= tc then
+					data[#data + 1] = string.char(31) .. _colors[tc]
+					textcolor = tc
+				end
+				data[#data + 1] = self.buffer[((j - 1) * self.width + i) * 3 - 1] or " "
+			end
+			if j < self.height then
+				data[#data + 1] = "\n"
+			end
+		end
+	elseif format == "nfp" then
+		for j=1,self.height do
+			for i=1,self.width do
+				backcolor = self.buffer[((j - 1) * self.width + i) * 3 - 2]
+				data[(j - 1) * (self.width + 1) + i] = backcolor and _colors[backcolor] or " "
+			end
+			if j < self.height then
+				data[(j - 1) * (self.width + 1) + self.width + 1] = "\n"
+			end
+		end
+	end
+	str = _table_concat(data)
+	if handle then
+		handle.write(str)
+		handle.close()
+	end
+	return str
+end
+
 function canvas:setBounds(x1, y1, x2, y2, inside)
+	if x1 > x2 then
+		x1, x2 = x2, x1
+	end
+	if y1 > y2 then
+		y1, y2 = y2, y1
+	end
 	if inside then
+		if x2 < self.x1 or x1 > self.x2 or y2 < self.y1 or y1 > self.y2 then return end
 		if x1 < self.x1 then x1 = self.x1 end
 		if x2 > self.x2 then x2 = self.x2 end
 		if y1 < self.y1 then y1 = self.y1 end
 		if y2 > self.x2 then y2 = self.x2 end
 		self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
 	else
+		if x2 < 1 or x1 > self.width or y2 < 1 or y1 > self.height then return self end
 		if x1 < 1 then x1 = 1 end
 		if x2 > self.width then x2 = self.width end
 		if y1 < 1 then y1 = 1 end
@@ -162,10 +293,6 @@ function canvas:setBounds(x1, y1, x2, y2, inside)
 		self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
 	end
 	return self
-end
-
-function canvas:getBounds()
-	return self.x1, self.y1, self.x2, self.y2
 end
 
 function canvas:clear(backcolor, char, textcolor)
@@ -335,7 +462,7 @@ function canvas:drawRect(x1, y1, x2, y2, backcolor, char, textcolor)
 	if y1 > y2 then
 		y1, y2 = y2, y1
 	end
-	if x2 < self.x1 or x1 > self.x2 or y2 < self.y1 or y1 > self.y2 then return end
+	if x2 < self.x1 or x1 > self.x2 or y2 < self.y1 or y1 > self.y2 then return self end
 	if x1 < self.x1 then x1 = self.x1 end
 	if x2 > self.x2 then x2 = self.x2 end
 	if y1 < self.y1 then y1 = self.y1 end
@@ -366,7 +493,7 @@ end
 
 function canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textcolor)
 	local minx, miny, maxx, maxy, buffer, lines = _math_min(x1, x2, x3), _math_min(y1, y2, y3), _math_max(x1, x2, x3), _math_max(y1, y2, y3), { }, { }
-	local width, height = maxx - minx + 1, maxy - miny + 1
+	local width, height, min, max, x1, x2, y1 = maxx - minx + 1, maxy - miny + 1
 	lines[1], lines[2], lines[3], lines[4], lines[5], lines[6], lines[7], lines[8], lines[9], lines[10], lines[11], lines[12] = x1 - minx + 1, y1 - miny, x2 - minx + 1, y2 - miny, x1 - minx + 1, y1 - miny, x3 - minx + 1, y3 - miny, x2 - minx + 1, y2 - miny, x3 - minx + 1, y3 - miny
 	for i=1,9,4 do
 		local delta_x = lines[i + 2] - lines[i]
@@ -400,7 +527,6 @@ function canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textcolor)
 			end
 		end
 	end
-	local min, max
 	for j=1,height do
 		min, max = nil
 		for i=1,width do
@@ -409,7 +535,7 @@ function canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textcolor)
 				max = i
 			end
 		end
-		local x1, x2, y1 = min + minx - 1, max + minx - 1, j + miny - 1
+		x1, x2, y1 = min + minx - 1, max + minx - 1, j + miny - 1
 		if not (y1 < self.y1 or y1 > self.y2 or x2 < self.x1 or x1 > self.x2) then
 			if x1 < self.x1 then x1 = self.x1 end
 			if x2 > self.x2 then x2 = self.x2 end
@@ -441,7 +567,7 @@ function canvas:drawCanvas(canvas, x, y, x1, y1, x2, y2)
 	if y1 > y2 then
 		y1, y2 = y2, y1
 	end
-	if x2 < 1 or x1 > canvas.width or y2 < 1 or y1 > canvas.height then return end
+	if x2 < 1 or x1 > canvas.width or y2 < 1 or y1 > canvas.height then return self end
 	if x1 < 1 then x = x - x1 + 1 x1 = 1 end
 	if x2 > canvas.width then x2 = canvas.width end
 	if y1 < 1 then y = y - y1 + 1 y1 = 1 end
@@ -470,7 +596,7 @@ function canvas:drawCanvas(canvas, x, y, x1, y1, x2, y2)
 end
 
 function canvas:drawCanvasScaled(canvas, x1, y1, x2, y2)
-	local x, width, xinv, y, height, yinv
+	local x, width, xinv, y, height, yinv, px, py, sx, sy, backcolor, char, textcolor
 	if x1 <= x2 then
 		x = x1
 		width = x2 - x1 + 1
@@ -487,7 +613,7 @@ function canvas:drawCanvasScaled(canvas, x1, y1, x2, y2)
 		height = y1 - y2 + 1
 		yinv = true
 	end
-	local xscale, yscale, px, py, sx, sy, backcolor, char, textcolor = width / canvas.width, height / canvas.height
+	local xscale, yscale = width / canvas.width, height / canvas.height
 	for j=1,height do
 		for i=1,width do
 			sx, sy = x + i - 1, y + j - 1
@@ -530,6 +656,7 @@ function canvas:drawCanvasRotated(canvas, angle, x, y, ox, oy)
 			end
 		end
 	end
+	return self
 end
 
 return graphics
