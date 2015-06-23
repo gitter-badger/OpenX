@@ -1,11 +1,10 @@
--- OpenGraphics alpha 0.2.0 by CrazedProgrammer
+-- OpenGraphics alpha 0.3.0 by CrazedProgrammer
 -- Licensed under MIT: http://opensource.org/licenses/mit-license.php
 -- Available on GitHub: https://github.com/CrazedProgrammer/OpenGraphics
 -- You can load this API with dofile or you can put it directly into your program.
 
 -- Don't delete this.
-local graphics, canvas, context3d, _string_format, _string_char, _table_concat, _math_floor, _math_abs, _math_min, _math_max, _math_sin, _math_cos, _colors = { }, { }, { }, string.format, string.char, table.concat, math.floor, math.abs, math.min, math.max, math.sin, math.cos, {[1]="0",[2]="1",[4]="2",[8]="3",[16]="4",[32]="5",[64]="6",[128]="7",[256]="8",[512]="9",[1024]="a",[2048]="b",[4096]="c",[8192]="d",[16384]="e",[32768]="f"}
-graphics.canvas, graphics.context3d = canvas, context3d
+local graphics, _string_format, _string_char, _table_concat, _math_floor, _math_abs, _math_min, _math_max, _math_sin, _math_cos, _colors = {canvas = { }}, string.format, string.char, table.concat, math.floor, math.abs, math.min, math.max, math.sin, math.cos, {[1]="0",[2]="1",[4]="2",[8]="3",[16]="4",[32]="5",[64]="6",[128]="7",[256]="8",[512]="9",[1024]="a",[2048]="b",[4096]="c",[8192]="d",[16384]="e",[32768]="f"}
 
 -- Main functions (gets returned to the user), you can delete these.
 function graphics.createCanvas(width, height, backcolor, char, textcolor)
@@ -117,12 +116,8 @@ function graphics.loadCanvas(filestr, isstr)
 	return canvas
 end
 
-function graphics.createContext3D()
-	return setmetatable({tris = { }, stack = { }}, {__index = graphics.context3d})
-end
-
 -- Canvas functions, you can delete these.
-function canvas:render(display, x, y, x1, y1, x2, y2)
+function graphics.canvas:render(display, x, y, x1, y1, x2, y2)
 	display, x, y, x1, y1, x2, y2 = display or term, x or 1, y or 1, x1 or 1, y1 or 1, x2 or self.width, y2 or self.height
 	if x1 > x2 then
 		x1, x2 = x2, x1
@@ -201,7 +196,7 @@ function canvas:render(display, x, y, x1, y1, x2, y2)
 	end
 end
 
-function canvas:copy()
+function graphics.canvas:copy()
 	local canvas = setmetatable({width = self.width, height = self.height, x1 = self.x1, y1 = self.y1, x2 = self.x2, y2 = self.y2, overwrite = self.overwrite, buffer = { }}, {__index = graphics.canvas})
 	for i=1,self.width*self.height*3,1 do
 		canvas.buffer[i] = self.buffer[i]
@@ -209,7 +204,7 @@ function canvas:copy()
 	return canvas
 end
 
-function canvas:save(filestr, format)
+function graphics.canvas:save(filestr, format)
 	format = format or "srf"
 	local data, str, handle, backcolor, char, textcolor = { }
 	if type(filestr) == "string" then
@@ -270,7 +265,114 @@ function canvas:save(filestr, format)
 	return str
 end
 
-function canvas:setBounds(x1, y1, x2, y2, inside)
+function graphics.canvas:getTerm(cursor)
+	cursor = cursor or {x = 1, y = 1, blink = false, backcolor = 32768, textcolor = 1}
+	local term = { }
+	function term.write(text)
+		for i=1,#text do
+			if cursor.x >= self.x1 and cursor.x <= self.x2 and cursor.y >= self.y1 and cursor.y <= self.y2 then
+				self.buffer[((cursor.y - 1) * self.width + cursor.x) * 3 - 1] = text:sub(i, i)
+				if cursor.backcolor or self.overwrite then
+					self.buffer[((cursor.y - 1) * self.width + cursor.x) * 3 - 2] = cursor.backcolor
+				end
+				if cursor.textcolor or self.overwrite then
+					self.buffer[((cursor.y - 1) * self.width + cursor.x) * 3] = cursor.textcolor
+				end
+			end
+			cursor.x = cursor.x + 1
+		end
+	end
+	function term.blit(text, textcolor, backcolor)
+		for i=1,#text do
+			if cursor.x >= self.x1 and cursor.x <= self.x2 and cursor.y >= self.y1 and cursor.y <= self.y2 then
+				self.buffer[((cursor.y - 1) * self.width + cursor.x) * 3 - 1] = text:sub(i, i)
+				self.buffer[((cursor.y - 1) * self.width + cursor.x) * 3 - 2] = 2 ^ tonumber(backcolor:sub(i, i), 16)
+				self.buffer[((cursor.y - 1) * self.width + cursor.x) * 3] = 2 ^ tonumber(textcolor:sub(i, i), 16)
+			end
+			cursor.x = cursor.x + 1
+		end
+	end
+	function term.clear()
+		for j=self.y1,self.y2 do
+			for i=self.x1,self.x2 do
+				self.buffer[((j - 1) * self.width + i) * 3 - 2] = cursor.backcolor
+				self.buffer[((j - 1) * self.width + i) * 3 - 1] = nil
+				self.buffer[((j - 1) * self.width + i) * 3] = cursor.textcolor
+			end
+		end
+	end
+	function term.clearLine()
+		for i=1,self.x1,self.y1 do
+			self.buffer[((cursor.y - 1) * self.width + i) * 3 - 2] = cursor.backcolor
+			self.buffer[((cursor.y - 1) * self.width + i) * 3 - 1] = nil
+			self.buffer[((cursor.y - 1) * self.width + i) * 3] = cursor.textcolor
+		end
+	end
+	function term.getCursorPos()
+		return cursor.x, cursor.y
+	end
+	function term.setCursorPos(x, y)
+		cursor.x, cursor.y = _math_floor(x), _math_floor(y)
+	end
+	function term.setCursorBlink(blink)
+		cursor.blink = blink
+	end
+	function term.isColor()
+		return true
+	end
+	function term.isColour()
+		return true
+	end
+	function term.setTextColor(color)
+		cursor.textcolor = color
+	end
+	function term.setTextColour(color)
+		cursor.textcolor = color
+	end
+	function term.setBackgroundColor(color)
+		cursor.textcolor = color
+	end
+	function term.setBackgroundColour(color)
+		cursor.textcolor = color
+	end
+	function term.getSize()
+		return self.width, self.height
+	end
+	function term.scroll(n)
+		if n >= 0 then
+			for j=self.y1,self.y2 do
+				for i=self.x1,self.x2 do
+					self.buffer[((j - 1) * self.width + i) * 3 - 2] = self.buffer[((j + n - 1) * self.width + i) * 3 - 2]
+					self.buffer[((j - 1) * self.width + i) * 3 - 1] = self.buffer[((j + n - 1) * self.width + i) * 3 - 1]
+					self.buffer[((j - 1) * self.width + i) * 3] = self.buffer[((j + n - 1) * self.width + i) * 3]
+				end
+			end
+		else
+			for j=self.y2,self.y1,-1 do
+				for i=self.x1,self.x2 do
+					self.buffer[((j - 1) * self.width + i) * 3 - 2] = self.buffer[((j + n - 1) * self.width + i) * 3 - 2]
+					self.buffer[((j - 1) * self.width + i) * 3 - 1] = self.buffer[((j + n - 1) * self.width + i) * 3 - 1]
+					self.buffer[((j - 1) * self.width + i) * 3] = self.buffer[((j + n - 1) * self.width + i) * 3]
+				end
+			end
+		end
+	end
+	function term.getTextColor()
+		return cursor.textcolor
+	end
+	function term.getTextColour()
+		return cursor.textcolor
+	end
+	function term.getBackgroundColor()
+		return cursor.backcolor
+	end
+	function term.getBackgroundColour()
+		return cursor.backcolor
+	end
+	return term, cursor
+end
+
+function graphics.canvas:setBounds(x1, y1, x2, y2, inside)
 	if x1 > x2 then
 		x1, x2 = x2, x1
 	end
@@ -295,7 +397,7 @@ function canvas:setBounds(x1, y1, x2, y2, inside)
 	return self
 end
 
-function canvas:clear(backcolor, char, textcolor)
+function graphics.canvas:clear(backcolor, char, textcolor)
 	for j=self.y1,self.y2 do
 		for i=self.x1,self.x2 do
 			self.buffer[((j - 1) * self.width + i) * 3 - 2] = backcolor
@@ -305,7 +407,7 @@ function canvas:clear(backcolor, char, textcolor)
 	end
 end
 
-function canvas:drawPixel(x, y, backcolor, char, textcolor)
+function graphics.canvas:drawPixel(x, y, backcolor, char, textcolor)
 	if x < self.x1 or x > self.x2 or y < self.y1 or y > self.y2 then return self end
 	if backcolor or self.overwrite then
 		self.buffer[((y - 1) * self.width + x) * 3 - 2] = backcolor
@@ -319,12 +421,12 @@ function canvas:drawPixel(x, y, backcolor, char, textcolor)
 	return self
 end
 
-function canvas:getPixel(x, y)
+function graphics.canvas:getPixel(x, y)
 	if x < self.x1 or x > self.x2 or y < self.y1 or y > self.y2 then return end
 	return self.buffer[((y - 1) * self.width + x) * 3 - 2], self.buffer[((y - 1) * self.width + x) * 3 - 1], self.buffer[((y - 1) * self.width + x) * 3]
 end
 
-function canvas:drawText(text, x, y, backcolor, textcolor)
+function graphics.canvas:drawText(text, x, y, backcolor, textcolor)
 	local ox = x
 	for i=1,#text do
 		if text:sub(i, i) ~= "\n" then
@@ -345,7 +447,7 @@ function canvas:drawText(text, x, y, backcolor, textcolor)
 	end
 end
 
-function canvas:drawLine(x1, y1, x2, y2, backcolor, char, textcolor)
+function graphics.canvas:drawLine(x1, y1, x2, y2, backcolor, char, textcolor)
 	if x1 == x2 then
 		if y1 > y2 then
 			y1, y2 = y2, y1
@@ -455,7 +557,7 @@ function canvas:drawLine(x1, y1, x2, y2, backcolor, char, textcolor)
 	return self
 end
 
-function canvas:drawRect(x1, y1, x2, y2, backcolor, char, textcolor)
+function graphics.canvas:drawRect(x1, y1, x2, y2, backcolor, char, textcolor)
 	if x1 > x2 then
 		x1, x2 = x2, x1
 	end
@@ -491,7 +593,7 @@ function canvas:drawRect(x1, y1, x2, y2, backcolor, char, textcolor)
 	return self
 end
 
-function canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textcolor)
+function graphics.canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textcolor)
 	local minx, miny, maxx, maxy, buffer, lines = _math_min(x1, x2, x3), _math_min(y1, y2, y3), _math_max(x1, x2, x3), _math_max(y1, y2, y3), { }, { }
 	local width, height, min, max, x1, x2, y1 = maxx - minx + 1, maxy - miny + 1
 	lines[1], lines[2], lines[3], lines[4], lines[5], lines[6], lines[7], lines[8], lines[9], lines[10], lines[11], lines[12] = x1 - minx + 1, y1 - miny, x2 - minx + 1, y2 - miny, x1 - minx + 1, y1 - miny, x3 - minx + 1, y3 - miny, x2 - minx + 1, y2 - miny, x3 - minx + 1, y3 - miny
@@ -559,7 +661,7 @@ function canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textcolor)
 	return self
 end
 
-function canvas:drawCanvas(canvas, x, y, x1, y1, x2, y2)
+function graphics.canvas:drawCanvas(canvas, x, y, x1, y1, x2, y2)
 	x1, y1, x2, y2 = x1 or 1, y1 or 1, x2 or canvas.width, y2 or canvas.height
 	if x1 > x2 then
 		x1, x2 = x2, x1
@@ -595,7 +697,7 @@ function canvas:drawCanvas(canvas, x, y, x1, y1, x2, y2)
 	return self
 end
 
-function canvas:drawCanvasScaled(canvas, x1, y1, x2, y2)
+function graphics.canvas:drawCanvasScaled(canvas, x1, y1, x2, y2)
 	local x, width, xinv, y, height, yinv, px, py, sx, sy, backcolor, char, textcolor
 	if x1 <= x2 then
 		x = x1
@@ -635,7 +737,7 @@ function canvas:drawCanvasScaled(canvas, x1, y1, x2, y2)
 	return self
 end
 
-function canvas:drawCanvasRotated(canvas, angle, x, y, ox, oy)
+function graphics.canvas:drawCanvasRotated(canvas, angle, x, y, ox, oy)
 	ox, oy = ox or 1, oy or 1
 	local cos, sin, range, px, py, sx, sy, backcolor, char, textcolor = _math_cos(angle), _math_sin(angle), _math_floor(math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height))
 	x, y = x - _math_floor(cos * (ox - 1) + sin * (oy - 1) + 0.5), y - _math_floor(cos * (oy - 1) - sin * (ox - 1) + 0.5)
