@@ -4,11 +4,11 @@
 -- You can load this API with dofile or you can put it directly into your program.
 
 -- Don't delete this.
-local graphics, _string_format, _string_char, _table_concat, _math_floor, _math_abs, _math_min, _math_max, _math_sin, _math_cos, _colors = {canvas = { }}, string.format, string.char, table.concat, math.floor, math.abs, math.min, math.max, math.sin, math.cos, {[1]="0",[2]="1",[4]="2",[8]="3",[16]="4",[32]="5",[64]="6",[128]="7",[256]="8",[512]="9",[1024]="a",[2048]="b",[4096]="c",[8192]="d",[16384]="e",[32768]="f"}
+local openx, _string_format, _string_char, _table_concat, _math_floor, _math_abs, _math_min, _math_max, _math_sin, _math_cos, _colors = {canvas = { }}, string.format, string.char, table.concat, math.floor, math.abs, math.min, math.max, math.sin, math.cos, {[1]="0",[2]="1",[4]="2",[8]="3",[16]="4",[32]="5",[64]="6",[128]="7",[256]="8",[512]="9",[1024]="a",[2048]="b",[4096]="c",[8192]="d",[16384]="e",[32768]="f"}
 
 -- Main functions (gets returned to the user), you can delete these.
-function graphics.createCanvas(width, height, backcolor, char, textcolor)
-	local canvas = setmetatable({width = width, height = height, x1 = 1, y1 = 1, x2 = width, y2 = height, overwrite = false, buffer = { }}, {__index = graphics.canvas})
+function openx.createCanvas(width, height, backcolor, char, textcolor)
+	local canvas = setmetatable({width = width, height = height, x1 = 1, y1 = 1, x2 = width, y2 = height, overwrite = false, buffer = { }}, {__index = openx.canvas})
 	if backcolor then
 		for i=1,width*height*3,3 do
 			canvas.buffer[i] = backcolor
@@ -27,8 +27,8 @@ function graphics.createCanvas(width, height, backcolor, char, textcolor)
 	return canvas
 end
 
-function graphics.loadCanvas(filestr, isstr)
-	local canvas = setmetatable({overwrite = false, buffer = { }}, {__index = graphics.canvas})
+function openx.loadCanvas(filestr, isstr)
+	local canvas = setmetatable({overwrite = false, buffer = { }}, {__index = openx.canvas})
 	local str = filestr
 	if not isstr then
 		local f = fs.open(filestr, "r")
@@ -117,7 +117,7 @@ function graphics.loadCanvas(filestr, isstr)
 end
 
 -- Canvas functions, you can delete these.
-function graphics.canvas:render(display, x, y, x1, y1, x2, y2)
+function openx.canvas:render(display, x, y, x1, y1, x2, y2)
 	display, x, y, x1, y1, x2, y2 = display or term, x or 1, y or 1, x1 or 1, y1 or 1, x2 or self.width, y2 or self.height
 	if x1 > x2 then
 		x1, x2 = x2, x1
@@ -196,15 +196,15 @@ function graphics.canvas:render(display, x, y, x1, y1, x2, y2)
 	end
 end
 
-function graphics.canvas:copy()
-	local canvas = setmetatable({width = self.width, height = self.height, x1 = self.x1, y1 = self.y1, x2 = self.x2, y2 = self.y2, overwrite = self.overwrite, buffer = { }}, {__index = graphics.canvas})
+function openx.canvas:copy()
+	local canvas = setmetatable({width = self.width, height = self.height, x1 = self.x1, y1 = self.y1, x2 = self.x2, y2 = self.y2, overwrite = self.overwrite, buffer = { }}, {__index = openx.canvas})
 	for i=1,self.width*self.height*3,1 do
 		canvas.buffer[i] = self.buffer[i]
 	end
 	return canvas
 end
 
-function graphics.canvas:save(filestr, format)
+function openx.canvas:save(filestr, format)
 	format = format or "srf"
 	local data, str, handle, backcolor, char, textcolor = { }
 	if type(filestr) == "string" then
@@ -265,7 +265,7 @@ function graphics.canvas:save(filestr, format)
 	return str
 end
 
-function graphics.canvas:getTerm(cursor)
+function openx.canvas:getTerm(cursor)
 	cursor = cursor or {x = 1, y = 1, blink = false, backcolor = 32768, textcolor = 1}
 	local term = { }
 	function term.write(text)
@@ -372,7 +372,7 @@ function graphics.canvas:getTerm(cursor)
 	return term, cursor
 end
 
-function graphics.canvas:setBounds(x1, y1, x2, y2, inside)
+function openx.canvas:setBounds(x1, y1, x2, y2, inside)
 	if x1 > x2 then
 		x1, x2 = x2, x1
 	end
@@ -397,7 +397,7 @@ function graphics.canvas:setBounds(x1, y1, x2, y2, inside)
 	return self
 end
 
-function graphics.canvas:clear(backcolor, char, textcolor)
+function openx.canvas:clear(backcolor, char, textcolor)
 	for j=self.y1,self.y2 do
 		for i=self.x1,self.x2 do
 			self.buffer[((j - 1) * self.width + i) * 3 - 2] = backcolor
@@ -407,7 +407,7 @@ function graphics.canvas:clear(backcolor, char, textcolor)
 	end
 end
 
-function graphics.canvas:drawPixel(x, y, backcolor, char, textcolor)
+function openx.canvas:drawPixel(x, y, backcolor, char, textcolor)
 	if x < self.x1 or x > self.x2 or y < self.y1 or y > self.y2 then return self end
 	if backcolor or self.overwrite then
 		self.buffer[((y - 1) * self.width + x) * 3 - 2] = backcolor
@@ -421,12 +421,12 @@ function graphics.canvas:drawPixel(x, y, backcolor, char, textcolor)
 	return self
 end
 
-function graphics.canvas:getPixel(x, y)
+function openx.canvas:getPixel(x, y)
 	if x < self.x1 or x > self.x2 or y < self.y1 or y > self.y2 then return end
 	return self.buffer[((y - 1) * self.width + x) * 3 - 2], self.buffer[((y - 1) * self.width + x) * 3 - 1], self.buffer[((y - 1) * self.width + x) * 3]
 end
 
-function graphics.canvas:drawText(text, x, y, backcolor, textcolor)
+function openx.canvas:drawText(text, x, y, backcolor, textcolor)
 	local ox = x
 	for i=1,#text do
 		if text:sub(i, i) ~= "\n" then
@@ -447,7 +447,7 @@ function graphics.canvas:drawText(text, x, y, backcolor, textcolor)
 	end
 end
 
-function graphics.canvas:drawLine(x1, y1, x2, y2, backcolor, char, textcolor)
+function openx.canvas:drawLine(x1, y1, x2, y2, backcolor, char, textcolor)
 	if x1 == x2 then
 		if y1 > y2 then
 			y1, y2 = y2, y1
@@ -557,7 +557,7 @@ function graphics.canvas:drawLine(x1, y1, x2, y2, backcolor, char, textcolor)
 	return self
 end
 
-function graphics.canvas:drawRect(x1, y1, x2, y2, backcolor, char, textcolor)
+function openx.canvas:drawRect(x1, y1, x2, y2, backcolor, char, textcolor)
 	if x1 > x2 then
 		x1, x2 = x2, x1
 	end
@@ -593,7 +593,7 @@ function graphics.canvas:drawRect(x1, y1, x2, y2, backcolor, char, textcolor)
 	return self
 end
 
-function graphics.canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textcolor)
+function openx.canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textcolor)
 	local minx, miny, maxx, maxy, buffer, lines = _math_min(x1, x2, x3), _math_min(y1, y2, y3), _math_max(x1, x2, x3), _math_max(y1, y2, y3), { }, { }
 	local width, height, min, max, x1, x2, y1 = maxx - minx + 1, maxy - miny + 1
 	lines[1], lines[2], lines[3], lines[4], lines[5], lines[6], lines[7], lines[8], lines[9], lines[10], lines[11], lines[12] = x1 - minx + 1, y1 - miny, x2 - minx + 1, y2 - miny, x1 - minx + 1, y1 - miny, x3 - minx + 1, y3 - miny, x2 - minx + 1, y2 - miny, x3 - minx + 1, y3 - miny
@@ -661,7 +661,7 @@ function graphics.canvas:drawTri(x1, y1, x2, y2, x3, y3, backcolor, char, textco
 	return self
 end
 
-function graphics.canvas:drawCanvas(canvas, x, y, x1, y1, x2, y2)
+function openx.canvas:drawCanvas(canvas, x, y, x1, y1, x2, y2)
 	x1, y1, x2, y2 = x1 or 1, y1 or 1, x2 or canvas.width, y2 or canvas.height
 	if x1 > x2 then
 		x1, x2 = x2, x1
@@ -697,7 +697,7 @@ function graphics.canvas:drawCanvas(canvas, x, y, x1, y1, x2, y2)
 	return self
 end
 
-function graphics.canvas:drawCanvasScaled(canvas, x1, y1, x2, y2)
+function openx.canvas:drawCanvasScaled(canvas, x1, y1, x2, y2)
 	local x, width, xinv, y, height, yinv, px, py, sx, sy, backcolor, char, textcolor
 	if x1 <= x2 then
 		x = x1
@@ -737,7 +737,7 @@ function graphics.canvas:drawCanvasScaled(canvas, x1, y1, x2, y2)
 	return self
 end
 
-function graphics.canvas:drawCanvasRotated(canvas, angle, x, y, ox, oy)
+function openx.canvas:drawCanvasRotated(canvas, angle, x, y, ox, oy)
 	ox, oy = ox or 1, oy or 1
 	local cos, sin, range, px, py, sx, sy, backcolor, char, textcolor = _math_cos(angle), _math_sin(angle), _math_floor(math.sqrt(canvas.width * canvas.width + canvas.height * canvas.height))
 	x, y = x - _math_floor(cos * (ox - 1) + sin * (oy - 1) + 0.5), y - _math_floor(cos * (oy - 1) - sin * (ox - 1) + 0.5)
@@ -761,4 +761,4 @@ function graphics.canvas:drawCanvasRotated(canvas, angle, x, y, ox, oy)
 	return self
 end
 
-return graphics
+return openx
