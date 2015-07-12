@@ -1,6 +1,6 @@
--- OpenGraphics alpha 0.3.0 by CrazedProgrammer
+-- OpenX alpha 0.1.0 by CrazedProgrammer
 -- Licensed under MIT: http://opensource.org/licenses/mit-license.php
--- Available on GitHub: https://github.com/CrazedProgrammer/OpenGraphics
+-- Available on GitHub: https://github.com/CrazedProgrammer/OpenX
 -- You can load this API with dofile or you can put it directly into your program.
 
 -- Don't delete this.
